@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: llmkube-kueue-system
+resources:
+  - ../rbac
+  - ../manager
+# ../certmanager and ../webhook are wired in by issue #3 when the webhook
+# subcommand gains its defaulter; including them now would require
+# cert-manager on every dev cluster just to deploy the no-op controller.
+images:
+  - name: ghcr.io/defilantech/llmkube-kueue
+    newTag: dev

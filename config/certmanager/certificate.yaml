@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: llmkube-kueue-selfsigned
+  namespace: llmkube-kueue-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: llmkube-kueue-webhook-cert
+  namespace: llmkube-kueue-system
+spec:
+  dnsNames:
+    - llmkube-kueue-webhook.llmkube-kueue-system.svc
+    - llmkube-kueue-webhook.llmkube-kueue-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: llmkube-kueue-selfsigned
+  secretName: llmkube-kueue-webhook-cert

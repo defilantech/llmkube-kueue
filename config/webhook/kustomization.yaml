@@ -1,0 +1,7 @@
+# NOT included in config/default yet: issue #3 registers the suspend
+# defaulter and wires this overlay in.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - service.yaml
+  - manifests.yaml

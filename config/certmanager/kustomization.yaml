@@ -1,0 +1,6 @@
+# NOT included in config/default yet: issue #3 wires the webhook deployment
+# and flips this on. Requires cert-manager on the cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - certificate.yaml
