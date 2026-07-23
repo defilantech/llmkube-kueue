@@ -1,0 +1,14 @@
+image:
+  repository: ghcr.io/defilantech/llmkube-kueue
+  tag: ""
+  pullPolicy: IfNotPresent
+controller:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+rbac:
+  create: true
+serviceAccount:
+  create: true
+  name: llmkube-kueue-controller
