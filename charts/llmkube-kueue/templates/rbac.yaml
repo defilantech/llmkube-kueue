@@ -1,0 +1,50 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: llmkube-kueue-manager
+rules:
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["workloads"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["workloads/status"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["workloads/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["kueue.x-k8s.io"]
+    resources: ["resourceflavors", "workloadpriorityclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["inference.llmkube.dev"]
+    resources: ["inferenceservices"]
+    verbs: ["get", "list", "patch", "update", "watch"]
+  - apiGroups: ["inference.llmkube.dev"]
+    resources: ["inferenceservices/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["inference.llmkube.dev"]
+    resources: ["models"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch", "update", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: llmkube-kueue-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: llmkube-kueue-manager
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
