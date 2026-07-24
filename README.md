@@ -32,7 +32,8 @@ Early development. Tracking:
 [component issue LLMKube#1252](https://github.com/defilantech/LLMKube/issues/1252),
 and this repo's issues. Requires LLMKube with `spec.suspend` support
 ([LLMKube#1251](https://github.com/defilantech/LLMKube/issues/1251)) and Kueue
-v0.19.0.
+v0.19.0. Deploying now requires cert-manager (`make cert-manager`) because the
+suspend-defaulting webhook serves with cert-manager-issued certs.
 
 ## License
 

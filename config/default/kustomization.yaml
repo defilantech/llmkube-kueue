@@ -4,9 +4,11 @@ namespace: llmkube-kueue-system
 resources:
   - ../rbac
   - ../manager
-# ../certmanager and ../webhook are wired in by issue #3 when the webhook
-# subcommand gains its defaulter; including them now would require
-# cert-manager on every dev cluster just to deploy the no-op controller.
+  - ../certmanager
+  - ../webhook
+# The suspend-defaulting webhook serves with cert-manager-issued certs, so
+# cert-manager is now a deploy prerequisite: `make cert-manager` before
+# `make deploy`.
 images:
   - name: ghcr.io/defilantech/llmkube-kueue
     newTag: dev
