@@ -37,6 +37,11 @@ var (
 // factory (it decodes the live object into it).
 func NewInferenceServiceJob() jobframework.GenericJob { return &InferenceService{} }
 
+// InferenceServiceGVK exposes the GVK this adapter is registered under, for
+// callers (cmd/main.go's controller subcommand) that need it to set up the
+// workload owner index without reaching into the package var directly.
+func InferenceServiceGVK() schema.GroupVersionKind { return gvk }
+
 // fromObject adapts a decoded InferenceService into a GenericJob. Unused in
 // this slice; it is the hook issue #3's BaseWebhookFactory needs.
 //
