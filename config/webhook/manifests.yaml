@@ -16,6 +16,11 @@ webhooks:
     rules:
       - apiGroups: ["inference.llmkube.dev"]
         apiVersions: ["v1alpha1"]
+        # CREATE only, deliberately: adding the queue-name label to an
+        # already-running InferenceService via UPDATE is handled by the
+        # jobframework reconciler (which suspends it until admission), and
+        # that bounce should stay visible rather than be silently absorbed
+        # at admission time.
         operations: ["CREATE"]
         resources: ["inferenceservices"]
     clientConfig:

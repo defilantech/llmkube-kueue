@@ -35,7 +35,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	// manageJobsWithoutQueueName=false: only queue-labeled objects are
 	// managed, so this is a no-op for anything the objectSelector lets
 	// through by accident. The nil namespace selector is unused on the
-	// false path (verified against kueue defaults.go: it is only read
+	// false path (verified against kueue utils.go WorkloadShouldBeSuspended: it is only read
 	// inside WorkloadShouldBeSuspended's manageJobsWithoutQueueName
 	// branch, which manageJobsWithoutQueueName=false skips entirely).
 	return jobframework.ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
