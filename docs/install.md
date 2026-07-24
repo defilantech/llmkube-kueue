@@ -88,6 +88,10 @@ kubectl get workloads
 kubectl get inferenceservice qwen3-8b-queued -o jsonpath='{.spec.suspend}'
 ```
 
+Admission and the suspend flip are quota decisions, so they happen even on a
+cluster with no matching Model. The pod itself will not schedule until a
+Ready Model named `qwen3-8b` (or whatever your service references) exists.
+
 See `docs/queue-topology.md` for a full walkthrough of the sample topology,
 including the batch Job sample.
 
