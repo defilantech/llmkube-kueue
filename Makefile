@@ -1,15 +1,22 @@
 IMG ?= ghcr.io/defilantech/llmkube-kueue:dev
 KUEUE_VERSION ?= v0.19.0
 CERT_MANAGER_VERSION ?= v1.16.3
+ENVTEST_K8S_VERSION ?= 1.36.2
 LOCALBIN := $(shell pwd)/bin
 
-.PHONY: build test lint docker-build kind-load deploy undeploy kueue cert-manager
+.PHONY: build test lint docker-build kind-load deploy undeploy kueue cert-manager envtest-bins
 
 build:
 	go build -o bin/llmkube-kueue ./cmd
 
-test:
-	go test ./... -coverprofile cover.out
+$(LOCALBIN)/setup-envtest:
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.24
+
+envtest-bins: $(LOCALBIN)/setup-envtest
+	$(LOCALBIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path
+
+test: envtest-bins
+	KUBEBUILDER_ASSETS="$$($(LOCALBIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 lint: $(LOCALBIN)/golangci-lint
 	$(LOCALBIN)/golangci-lint run ./...
