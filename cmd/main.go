@@ -6,7 +6,8 @@
 //	llmkube-kueue webhook     - webhook server manager; hosts the suspend
 //	                            defaulter (issue #3).
 //
-// Both are placeholder no-op managers in the scaffold slice (issue #1).
+// "webhook" remains a placeholder no-op manager until issue #3 registers the
+// suspend defaulter.
 package main
 
 import (
@@ -14,13 +15,17 @@ import (
 	"fmt"
 	"os"
 
+	kubernetes "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/kueue/pkg/controller/jobframework"
 
+	kueuecontroller "github.com/defilantech/llmkube-kueue/internal/controller"
 	"github.com/defilantech/llmkube-kueue/internal/scheme"
 )
 
@@ -81,12 +86,52 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Scaffold slice: no controllers or webhook handlers registered yet.
-	// Issue #2 wires the jobframework reconciler under "controller";
-	// issue #3 registers the suspend defaulter under "webhook".
-	log.Info("starting no-op manager (scaffold)")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.Error(err, "manager exited")
-		os.Exit(1)
+	// ctrl.SetupSignalHandler may only be called once per process; hoist a
+	// single ctx here and share it across both subcommand branches below.
+	ctx := ctrl.SetupSignalHandler()
+
+	switch sub {
+	case "controller":
+		// The jobframework reconciler owns the Workload lifecycle for
+		// InferenceServices: it creates the Workload, translates Kueue
+		// admission into clearing spec.suspend, and deactivates the
+		// Workload at scale-to-zero (quota release). Kueue's own manager
+		// never touches InferenceServices; it must list this integration
+		// under integrations.externalFrameworks (hack/kueue-config.yaml).
+		kubeClient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
+		if err != nil {
+			log.Error(err, "building kube client for the event broadcaster")
+			os.Exit(1)
+		}
+		broadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: kubeClient.EventsV1()})
+		broadcaster.StartRecordingToSink(ctx.Done())
+		recorder := broadcaster.NewRecorder(mgr.GetScheme(), "llmkube-kueue")
+
+		if err := jobframework.SetupWorkloadOwnerIndex(ctx, mgr.GetFieldIndexer(), kueuecontroller.InferenceServiceGVK()); err != nil {
+			log.Error(err, "setting up the workload owner index")
+			os.Exit(1)
+		}
+		factory := jobframework.NewGenericReconcilerFactory(kueuecontroller.NewInferenceServiceJob)
+		rec, err := factory(ctx, mgr.GetClient(), mgr.GetFieldIndexer(), recorder)
+		if err != nil {
+			log.Error(err, "building the jobframework reconciler")
+			os.Exit(1)
+		}
+		if err := rec.SetupWithManager(mgr); err != nil {
+			log.Error(err, "registering the jobframework reconciler")
+			os.Exit(1)
+		}
+		log.Info("starting controller with the InferenceService jobframework reconciler")
+		if err := mgr.Start(ctx); err != nil {
+			log.Error(err, "manager exited")
+			os.Exit(1)
+		}
+	case "webhook":
+		// Placeholder until issue #3 registers the suspend defaulter.
+		log.Info("starting no-op webhook manager (defaulter lands with issue #3)")
+		if err := mgr.Start(ctx); err != nil {
+			log.Error(err, "manager exited")
+			os.Exit(1)
+		}
 	}
 }

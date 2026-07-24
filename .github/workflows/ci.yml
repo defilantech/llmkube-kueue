@@ -23,8 +23,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go build ./...
-      - run: go test ./...
+      - run: make build
+      # make test wires setup-envtest (KUBEBUILDER_ASSETS) for the
+      # envtest-backed controller suite; bare go test has no control plane.
+      - run: make test
   helm:
     runs-on: ubuntu-latest
     steps:
