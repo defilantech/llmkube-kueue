@@ -4,4 +4,22 @@ metadata:
   name: llmkube-kueue
   annotations:
     cert-manager.io/inject-ca-from: llmkube-kueue-system/llmkube-kueue-webhook-cert
-webhooks: []
+webhooks:
+  - name: suspend.inferenceservice.llmkube-kueue.defilantech.dev
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    objectSelector:
+      matchExpressions:
+        - key: kueue.x-k8s.io/queue-name
+          operator: Exists
+    rules:
+      - apiGroups: ["inference.llmkube.dev"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE"]
+        resources: ["inferenceservices"]
+    clientConfig:
+      service:
+        name: llmkube-kueue-webhook
+        namespace: llmkube-kueue-system
+        path: /mutate-inference-llmkube-dev-v1alpha1-inferenceservice
