@@ -1,0 +1,17 @@
+# A Kueue-managed InferenceService: the queue-name label routes it to the
+# inference LocalQueue, and the llmkube-kueue webhook defaults
+# spec.suspend=true at admission so it starts gated. Kueue clears the
+# suspend when the ClusterQueue admits it. Requires a Model named
+# qwen3-8b in the same namespace (any Ready LLMKube Model works).
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen3-8b-queued
+  namespace: default
+  labels:
+    kueue.x-k8s.io/queue-name: inference-queue
+spec:
+  modelRef: qwen3-8b
+  replicas: 1
+  resources:
+    gpu: 1
