@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: llmkube-kueue-webhook
+  namespace: llmkube-kueue-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llmkube-kueue
+      app.kubernetes.io/component: webhook

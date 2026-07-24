@@ -1,0 +1,32 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: llmkube-kueue
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/llmkube-kueue-webhook-cert
+webhooks:
+  - name: suspend.inferenceservice.llmkube-kueue.defilantech.dev
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    objectSelector:
+      matchExpressions:
+        - key: kueue.x-k8s.io/queue-name
+          operator: Exists
+    rules:
+      - apiGroups: ["inference.llmkube.dev"]
+        apiVersions: ["v1alpha1"]
+        # CREATE only, deliberately: adding the queue-name label to an
+        # already-running InferenceService via UPDATE is handled by the
+        # jobframework reconciler (which suspends it until admission), and
+        # that bounce should stay visible rather than be silently absorbed
+        # at admission time.
+        operations: ["CREATE"]
+        resources: ["inferenceservices"]
+    clientConfig:
+      service:
+        name: llmkube-kueue-webhook
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-inference-llmkube-dev-v1alpha1-inferenceservice
+{{- end }}
