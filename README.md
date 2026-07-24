@@ -30,10 +30,16 @@ per the guidance in [LLMKube#1249](https://github.com/defilantech/LLMKube/issues
 Early development. Tracking:
 [epic LLMKube#1253](https://github.com/defilantech/LLMKube/issues/1253),
 [component issue LLMKube#1252](https://github.com/defilantech/LLMKube/issues/1252),
-and this repo's issues. Requires LLMKube with `spec.suspend` support
-([LLMKube#1251](https://github.com/defilantech/LLMKube/issues/1251)) and Kueue
-v0.19.0. Deploying now requires cert-manager (`make cert-manager`) because the
-suspend-defaulting webhook serves with cert-manager-issued certs.
+and this repo's issues. See `docs/install.md` for prerequisites and
+deployment steps.
+
+## Docs
+
+- [docs/install.md](docs/install.md): prerequisites, deploying the
+  controller and webhook, registering the external framework with Kueue,
+  and failure modes.
+- [docs/queue-topology.md](docs/queue-topology.md): a walkthrough of the
+  sample lend/borrow queue topology in `config/samples/kueue-topology.yaml`.
 
 ## License
 

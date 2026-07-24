@@ -1,0 +1,70 @@
+# The recommended LLMKube + Kueue topology: inference holds the GPU quota
+# and LENDS idle capacity; batch borrows it and is the side that gets
+# preempted when inference scales back up. Live inference is never
+# preempted. See docs/queue-topology.md for the walkthrough.
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ResourceFlavor
+metadata:
+  name: default-gpu
+# No nodeLabels: this flavor matches any GPU node. Split into per-family
+# flavors (nvidia-a100, amd-strix, ...) when quota should differ by family.
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: inference
+spec:
+  cohortName: gpu-pool
+  namespaceSelector: {}
+  preemption:
+    # Inference reclaims lent capacity from the cohort (evicting batch
+    # borrowers) the moment it needs quota back.
+    reclaimWithinCohort: Any
+    withinClusterQueue: Never
+  resourceGroups:
+    - coveredResources: ["nvidia.com/gpu"]
+      flavors:
+        - name: default-gpu
+          resources:
+            - name: nvidia.com/gpu
+              nominalQuota: 8
+              # Up to 4 idle GPUs may be borrowed by cohort peers (batch).
+              # Inference reclaims them on demand; set equal to nominalQuota
+              # to lend everything, or 0 to lend nothing.
+              lendingLimit: 4
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: batch
+spec:
+  cohortName: gpu-pool
+  namespaceSelector: {}
+  preemption:
+    withinClusterQueue: LowerPriority
+  resourceGroups:
+    - coveredResources: ["nvidia.com/gpu"]
+      flavors:
+        - name: default-gpu
+          resources:
+            - name: nvidia.com/gpu
+              # Batch owns no GPUs of its own; everything it runs is
+              # borrowed from what inference lends.
+              nominalQuota: 0
+              borrowingLimit: 4
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata:
+  name: inference-queue
+  namespace: default
+spec:
+  clusterQueue: inference
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: LocalQueue
+metadata:
+  name: batch-queue
+  namespace: default
+spec:
+  clusterQueue: batch

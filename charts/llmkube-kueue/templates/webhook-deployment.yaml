@@ -1,14 +1,14 @@
+{{- if .Values.webhook.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: llmkube-kueue-webhook
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: llmkube-kueue
     app.kubernetes.io/component: webhook
 spec:
-  # Two replicas plus the PDB keep labeled-create admission available
-  # through node drains and rollouts (failurePolicy is Fail).
-  replicas: 2
+  replicas: {{ .Values.webhook.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: llmkube-kueue
@@ -19,14 +19,15 @@ spec:
         app.kubernetes.io/name: llmkube-kueue
         app.kubernetes.io/component: webhook
     spec:
-      serviceAccountName: llmkube-kueue-controller
+      serviceAccountName: {{ .Values.serviceAccount.name }}
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: webhook
-          image: ghcr.io/defilantech/llmkube-kueue
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["webhook", "--webhook-cert-dir=/certs"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -53,3 +54,4 @@ spec:
         - name: certs
           secret:
             secretName: llmkube-kueue-webhook-cert
+{{- end }}

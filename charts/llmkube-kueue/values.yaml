@@ -12,3 +12,10 @@ rbac:
 serviceAccount:
   create: true
   name: llmkube-kueue-controller
+webhook:
+  # Requires cert-manager: the serving certificate is cert-manager issued.
+  # Disable only if you gate suspend defaulting some other way; without
+  # the webhook, queue-labeled CREATEs start unsuspended and the
+  # reconciler suspends them post-hoc.
+  enabled: true
+  replicas: 2
