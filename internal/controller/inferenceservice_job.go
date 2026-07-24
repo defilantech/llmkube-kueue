@@ -8,7 +8,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,12 +41,11 @@ func NewInferenceServiceJob() jobframework.GenericJob { return &InferenceService
 // workload owner index without reaching into the package var directly.
 func InferenceServiceGVK() schema.GroupVersionKind { return gvk }
 
-// fromObject adapts a decoded InferenceService into a GenericJob. Unused in
-// this slice; it is the hook issue #3's BaseWebhookFactory needs.
-//
-//nolint:unused // issue #3 webhook hook
-func fromObject(o runtime.Object) jobframework.GenericJob {
-	return (*InferenceService)(o.(*llmkubev1alpha1.InferenceService))
+// FromObject adapts a typed InferenceService to the GenericJob interface.
+// The suspend-defaulting webhook (internal/webhook) uses it so admission
+// defaults flow through the same adapter semantics as the reconciler.
+func FromObject(isvc *llmkubev1alpha1.InferenceService) jobframework.GenericJob {
+	return (*InferenceService)(isvc)
 }
 
 func (j *InferenceService) Object() client.Object {

@@ -5,9 +5,6 @@
 //	                            jobframework reconciler (issue #2).
 //	llmkube-kueue webhook     - webhook server manager; hosts the suspend
 //	                            defaulter (issue #3).
-//
-// "webhook" remains a placeholder no-op manager until issue #3 registers the
-// suspend defaulter.
 package main
 
 import (
@@ -27,6 +24,7 @@ import (
 
 	kueuecontroller "github.com/defilantech/llmkube-kueue/internal/controller"
 	"github.com/defilantech/llmkube-kueue/internal/scheme"
+	llmwebhook "github.com/defilantech/llmkube-kueue/internal/webhook"
 )
 
 func main() {
@@ -127,8 +125,15 @@ func main() {
 			os.Exit(1)
 		}
 	case "webhook":
-		// Placeholder until issue #3 registers the suspend defaulter.
-		log.Info("starting no-op webhook manager (defaulter lands with issue #3)")
+		// The defaulter makes queue-labeled InferenceServices start
+		// suspended, so a labeled create can never run ahead of Kueue
+		// admission (the reconciler would otherwise stop it post-hoc).
+		d := &llmwebhook.InferenceServiceDefaulter{Client: mgr.GetClient()}
+		if err := d.SetupWithManager(mgr); err != nil {
+			log.Error(err, "registering the suspend defaulter")
+			os.Exit(1)
+		}
+		log.Info("starting webhook manager with the suspend defaulter")
 		if err := mgr.Start(ctx); err != nil {
 			log.Error(err, "manager exited")
 			os.Exit(1)
