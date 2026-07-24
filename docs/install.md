@@ -95,6 +95,13 @@ Ready Model named `qwen3-8b` (or whatever your service references) exists.
 See `docs/queue-topology.md` for a full walkthrough of the sample topology,
 including the batch Job sample.
 
+## Testing the full contract
+
+`make test-e2e` spins up a kind cluster and proves the five admission
+scenarios from issue #5 against a real Kueue install, covering the same
+suspend/admit/unsuspend/deactivate/opt-out contract described above.
+Requires Docker and `kind`.
+
 ## Failure modes
 
 | Scenario | What happens |
