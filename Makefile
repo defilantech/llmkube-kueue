@@ -1,4 +1,6 @@
 IMG ?= ghcr.io/defilantech/llmkube-kueue:dev
+# Keep in sync with the sigs.k8s.io/kueue pin in go.mod: this installs the
+# SERVER the e2e runs against, go.mod compiles the CLIENT types.
 KUEUE_VERSION ?= v0.19.0
 CERT_MANAGER_VERSION ?= v1.16.3
 ENVTEST_K8S_VERSION ?= 1.36.2
