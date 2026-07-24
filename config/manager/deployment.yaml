@@ -25,6 +25,9 @@ spec:
       containers:
         - name: controller
           image: ghcr.io/defilantech/llmkube-kueue
+          # Explicit so kind-loaded local images are always used; a pull of the
+          # never-pushed dev tag would fail the rollout.
+          imagePullPolicy: IfNotPresent
           args: ["controller"]
           securityContext:
             allowPrivilegeEscalation: false
