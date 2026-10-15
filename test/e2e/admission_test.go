@@ -30,7 +30,7 @@ import (
 // next one depends on (which InferenceService currently holds the single
 // GPU slot).
 //
-// Field verification against $(go env GOMODCACHE)/sigs.k8s.io/kueue@v0.19.0
+// Field verification against $(go env GOMODCACHE)/sigs.k8s.io/kueue@v0.20.1
 // /apis/kueue/v1beta2/workload_types.go before writing these assertions:
 //   - WorkloadSpec.Active is `*bool` with json tag "active" -> spec.active.
 //   - WorkloadAdmitted = "Admitted" is the condition type set once a

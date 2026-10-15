@@ -38,7 +38,10 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	// false path (verified against kueue utils.go WorkloadShouldBeSuspended: it is only read
 	// inside WorkloadShouldBeSuspended's manageJobsWithoutQueueName
 	// branch, which manageJobsWithoutQueueName=false skips entirely).
-	return jobframework.ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
+	// v0.20 moved the package-level ApplyDefaultForSuspend behind
+	// IntegrationManager; an empty manager reproduces the v0.19
+	// package-function behavior for a leaf object.
+	return jobframework.NewIntegrationManager().ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
 }
 
 // SetupWithManager registers the defaulting webhook at controller-runtime's
