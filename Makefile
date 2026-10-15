@@ -50,8 +50,19 @@ cert-manager:
 kind-create:
 	kind get clusters | grep -qx $(KIND_CLUSTER) || kind create cluster --name $(KIND_CLUSTER)
 
+# go list -m does not download module source: on a cold module cache it
+# prints an empty .Dir and exits 0, silently turning this into
+# "kubectl apply -f /config/crd/bases". Download first; fail loudly on an
+# empty result rather than letting kubectl report a mystery path.
 llmkube-crds:
-	kubectl apply --server-side -f "$$(go list -m -f '{{.Dir}}' github.com/defilantech/llmkube)/config/crd/bases"
+	go mod download github.com/defilantech/llmkube
+	@dir=$$(go list -m -f '{{.Dir}}' github.com/defilantech/llmkube); \
+	if [ -z "$$dir" ]; then \
+		echo "error: empty module directory for github.com/defilantech/llmkube; run 'go mod download github.com/defilantech/llmkube'" >&2; \
+		exit 1; \
+	fi; \
+	echo "applying llmkube CRDs from $$dir/config/crd/bases"; \
+	kubectl apply --server-side -f "$$dir/config/crd/bases"
 
 e2e-setup: kind-create cert-manager llmkube-crds
 	kubectl -n cert-manager rollout status deployment/cert-manager --timeout=180s
