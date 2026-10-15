@@ -39,8 +39,11 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	// inside WorkloadShouldBeSuspended's manageJobsWithoutQueueName
 	// branch, which manageJobsWithoutQueueName=false skips entirely).
 	// v0.20 moved the package-level ApplyDefaultForSuspend behind
-	// IntegrationManager; an empty manager reproduces the v0.19
-	// package-function behavior for a leaf object.
+	// IntegrationManager. An empty manager matches the old package function
+	// for this binary: neither version registers a framework here, so the
+	// ancestor walk (isKnownOwner) stops immediately on both. One v0.20
+	// delta: ApplyDefaultForSuspend passes WithDeletingObjectTolerance, so
+	// a queue-labeled object being deleted is no longer force-suspended.
 	return jobframework.NewIntegrationManager().ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
 }
 

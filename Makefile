@@ -24,6 +24,9 @@ test: envtest-bins
 lint: $(LOCALBIN)/golangci-lint
 	$(LOCALBIN)/golangci-lint run ./...
 
+# Installed only when the binary is absent: after a Go toolchain upgrade,
+# delete the stale bin/golangci-lint or lint fails with a version-mismatch
+# error (the pinned version must be built with at least the repo's go line).
 $(LOCALBIN)/golangci-lint:
 	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
