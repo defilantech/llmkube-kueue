@@ -1,7 +1,7 @@
 IMG ?= ghcr.io/defilantech/llmkube-kueue:dev
 # Keep in sync with the sigs.k8s.io/kueue pin in go.mod: this installs the
 # SERVER the e2e runs against, go.mod compiles the CLIENT types.
-KUEUE_VERSION ?= v0.19.0
+KUEUE_VERSION ?= v0.20.1
 CERT_MANAGER_VERSION ?= v1.16.3
 ENVTEST_K8S_VERSION ?= 1.36.2
 KIND_CLUSTER ?= llmkube-kueue-e2e
@@ -24,8 +24,11 @@ test: envtest-bins
 lint: $(LOCALBIN)/golangci-lint
 	$(LOCALBIN)/golangci-lint run ./...
 
+# Installed only when the binary is absent: after a Go toolchain upgrade,
+# delete the stale bin/golangci-lint or lint fails with a version-mismatch
+# error (the pinned version must be built with at least the repo's go line).
 $(LOCALBIN)/golangci-lint:
-	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
 docker-build:
 	docker build -t $(IMG) .
@@ -50,8 +53,19 @@ cert-manager:
 kind-create:
 	kind get clusters | grep -qx $(KIND_CLUSTER) || kind create cluster --name $(KIND_CLUSTER)
 
+# go list -m does not download module source: on a cold module cache it
+# prints an empty .Dir and exits 0, silently turning this into
+# "kubectl apply -f /config/crd/bases". Download first; fail loudly on an
+# empty result rather than letting kubectl report a mystery path.
 llmkube-crds:
-	kubectl apply --server-side -f "$$(go list -m -f '{{.Dir}}' github.com/defilantech/llmkube)/config/crd/bases"
+	go mod download github.com/defilantech/llmkube
+	@dir=$$(go list -m -f '{{.Dir}}' github.com/defilantech/llmkube); \
+	if [ -z "$$dir" ]; then \
+		echo "error: empty module directory for github.com/defilantech/llmkube; run 'go mod download github.com/defilantech/llmkube'" >&2; \
+		exit 1; \
+	fi; \
+	echo "applying llmkube CRDs from $$dir/config/crd/bases"; \
+	kubectl apply --server-side -f "$$dir/config/crd/bases"
 
 e2e-setup: kind-create cert-manager llmkube-crds
 	kubectl -n cert-manager rollout status deployment/cert-manager --timeout=180s

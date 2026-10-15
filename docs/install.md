@@ -7,7 +7,7 @@ what to check when something is not working.
 
 - A Kubernetes cluster running LLMKube, with a version that supports
   `spec.suspend` on InferenceService ([LLMKube#1251](https://github.com/defilantech/LLMKube/issues/1251)).
-- Kueue v0.19.0.
+- Kueue v0.20.1.
 - cert-manager. The suspend-defaulting webhook serves with
   cert-manager-issued certificates, so it is a hard prerequisite, not an
   optional extra.
@@ -17,7 +17,7 @@ make cert-manager
 make kueue
 ```
 
-`make kueue` installs the stock Kueue v0.19.0 manifests and applies
+`make kueue` installs the stock Kueue v0.20.1 manifests and applies
 `hack/kueue-config.yaml` as the `kueue-manager-config` ConfigMap. That file
 registers the external framework described below, among other stock Kueue
 settings.

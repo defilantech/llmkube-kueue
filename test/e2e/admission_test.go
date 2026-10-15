@@ -30,7 +30,7 @@ import (
 // next one depends on (which InferenceService currently holds the single
 // GPU slot).
 //
-// Field verification against $(go env GOMODCACHE)/sigs.k8s.io/kueue@v0.19.0
+// Field verification against $(go env GOMODCACHE)/sigs.k8s.io/kueue@v0.20.1
 // /apis/kueue/v1beta2/workload_types.go before writing these assertions:
 //   - WorkloadSpec.Active is `*bool` with json tag "active" -> spec.active.
 //   - WorkloadAdmitted = "Admitted" is the condition type set once a
@@ -480,5 +480,80 @@ func TestAdmissionContract(t *testing.T) {
 			}
 			return true, nil
 		})
+	})
+
+	t.Run("dra-claims-admit-without-gpu-quota", func(t *testing.T) {
+		// A Model allocating its GPUs through DRA resourceClaims must not
+		// produce an nvidia.com/gpu pod-set request (llmkube-kueue#14):
+		// before the guard this Workload asked for two GPUs against the
+		// 1-GPU ClusterQueue and was never admitted, even though the pod
+		// itself would schedule on a DRA-only cluster.
+		claimName := "e2e-dra-claim"
+		model := &llmkubev1alpha1.Model{
+			ObjectMeta: metav1.ObjectMeta{Name: "e2e-dra-model", Namespace: ns.Name},
+			Spec: llmkubev1alpha1.ModelSpec{
+				Source: "https://example.com/model.gguf",
+				Hardware: &llmkubev1alpha1.HardwareSpec{
+					GPU: &llmkubev1alpha1.GPUSpec{
+						Count: 2,
+						ResourceClaims: []corev1.PodResourceClaim{{
+							Name:              "gpu",
+							ResourceClaimName: &claimName,
+						}},
+					},
+				},
+			},
+		}
+		if err := k8sClient.Create(testCtx, model); err != nil {
+			t.Fatalf("create DRA model: %v", err)
+		}
+
+		isvcD := newISVC("isvc-d", ns.Name, true)
+		isvcD.Spec.ModelRef = model.Name
+		if err := k8sClient.Create(testCtx, isvcD); err != nil {
+			t.Fatalf("create ISVC D: %v", err)
+		}
+
+		isvcDKey := client.ObjectKey{Namespace: ns.Name, Name: "isvc-d"}
+		eventually(t, "ISVC D unsuspended and its Workload Admitted", func() (bool, error) {
+			cur, err := getISVC(isvcDKey)
+			if err != nil {
+				return false, err
+			}
+			w, err := singleWorkloadOwnedBy(ns.Name, cur.UID)
+			if err != nil {
+				return false, err
+			}
+			if cur.Spec.Suspend {
+				if w == nil {
+					return false, fmt.Errorf("still suspended, no workload yet: %s", describeISVC(cur))
+				}
+				return false, fmt.Errorf("still suspended: %s / %s", describeISVC(cur), describeWorkload(w))
+			}
+			if w == nil {
+				return false, fmt.Errorf("unsuspended but no workload found yet: %s", describeISVC(cur))
+			}
+			if !meta.IsStatusConditionTrue(w.Status.Conditions, kueuev1beta2.WorkloadAdmitted) {
+				return false, fmt.Errorf("workload not yet Admitted: %s", describeWorkload(w))
+			}
+			return true, nil
+		})
+
+		cur, err := getISVC(isvcDKey)
+		if err != nil {
+			t.Fatalf("get ISVC D: %v", err)
+		}
+		w, err := singleWorkloadOwnedBy(ns.Name, cur.UID)
+		if err != nil {
+			t.Fatalf("list workloads for ISVC D: %v", err)
+		}
+		if w == nil {
+			t.Fatalf("admitted ISVC D has no workload: %s", describeISVC(cur))
+		}
+		for _, ps := range w.Spec.PodSets {
+			if _, ok := ps.Template.Spec.Containers[0].Resources.Requests[gpuResourceName]; ok {
+				t.Errorf("DRA claims model must not request %s: %+v", gpuResourceName, ps.Template.Spec.Containers[0].Resources.Requests)
+			}
+		}
 	})
 }

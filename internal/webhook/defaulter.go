@@ -38,7 +38,13 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	// false path (verified against kueue utils.go WorkloadShouldBeSuspended: it is only read
 	// inside WorkloadShouldBeSuspended's manageJobsWithoutQueueName
 	// branch, which manageJobsWithoutQueueName=false skips entirely).
-	return jobframework.ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
+	// v0.20 moved the package-level ApplyDefaultForSuspend behind
+	// IntegrationManager. An empty manager matches the old package function
+	// for this binary: neither version registers a framework here, so the
+	// ancestor walk (isKnownOwner) stops immediately on both. One v0.20
+	// delta: ApplyDefaultForSuspend passes WithDeletingObjectTolerance, so
+	// a queue-labeled object being deleted is no longer force-suspended.
+	return jobframework.NewIntegrationManager().ApplyDefaultForSuspend(ctx, controller.FromObject(isvc), d.Client, false, nil)
 }
 
 // SetupWithManager registers the defaulting webhook at controller-runtime's
@@ -56,6 +62,6 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 // *llmkubev1alpha1.Model argument to type-check the negative test.
 func (d *InferenceServiceDefaulter) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &llmkubev1alpha1.InferenceService{}). //nolint:staticcheck // deprecated WithCustomDefaulter required: see doc comment above
-		WithCustomDefaulter(d).
-		Complete()
+											WithCustomDefaulter(d).
+											Complete()
 }

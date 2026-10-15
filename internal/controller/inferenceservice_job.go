@@ -109,7 +109,12 @@ func (j *InferenceService) PodSets(ctx context.Context, c client.Client) ([]kueu
 	}
 
 	requests := corev1.ResourceList{}
-	if count := apiutil.GPUCount((*llmkubev1alpha1.InferenceService)(j), model); count > 0 {
+	// The pod-set request must mirror what the scheduled pod requests.
+	// With DRA resourceClaims the claims allocate the devices and the
+	// operator adds no device-plugin GPU limit (LLMKube#2059), so asking
+	// Kueue for nvidia.com/gpu here deadlocks admission on a DRA-only
+	// cluster; count still sizes the runtime. MIG divergence: #9.
+	if count := apiutil.GPUCount((*llmkubev1alpha1.InferenceService)(j), model); count > 0 && !apiutil.UsesDRAClaims(model) {
 		requests[apiutil.GPUResourceName(model)] = *resource.NewQuantity(int64(count), resource.DecimalSI)
 	}
 	if j.Spec.Resources != nil {
