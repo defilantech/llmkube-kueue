@@ -214,6 +214,65 @@ func TestReconcilerCreatesWorkloadForQueueLabeledISVC(t *testing.T) {
 	}
 }
 
+// TestReconcilerCreatesWorkloadForDRAModelOmitsGPURequest: a Model that
+// allocates its GPUs through DRA resourceClaims must produce a Workload
+// with no device-plugin GPU request. The claims allocate the devices
+// (LLMKube#2059); requesting nvidia.com/gpu here deadlocks admission on
+// a DRA-only cluster (llmkube-kueue#14).
+func TestReconcilerCreatesWorkloadForDRAModelOmitsGPURequest(t *testing.T) {
+	ns := newTestNamespace(t)
+	model := newTestModel(ns, "dra-model")
+	claimName := "dra-model-claim"
+	model.Spec.Hardware = &llmkubev1alpha1.HardwareSpec{
+		GPU: &llmkubev1alpha1.GPUSpec{
+			Count: 2,
+			ResourceClaims: []corev1.PodResourceClaim{{
+				Name:              "gpu",
+				ResourceClaimName: &claimName,
+			}},
+		},
+	}
+	if err := k8sClient.Create(testCtx, model); err != nil {
+		t.Fatalf("create model: %v", err)
+	}
+	isvc := newTestISVC(ns, "dra-svc", model.Name, map[string]string{controllerconstants.QueueLabel: "q"}, true, 2)
+	if err := k8sClient.Create(testCtx, isvc); err != nil {
+		t.Fatalf("create isvc: %v", err)
+	}
+
+	startTestReconciler(t)
+
+	var wl kueue.Workload
+	eventually(t, func(ctx context.Context) (bool, error) {
+		var wls kueue.WorkloadList
+		if err := k8sClient.List(ctx, &wls, client.InNamespace(ns)); err != nil {
+			return false, err
+		}
+		if len(wls.Items) != 1 {
+			return false, nil
+		}
+		wl = wls.Items[0]
+		return true, nil
+	})
+
+	if !metav1.IsControlledBy(&wl, isvc) {
+		t.Fatalf("workload %s is not controlled by isvc %s: ownerReferences=%+v", wl.Name, isvc.Name, wl.OwnerReferences)
+	}
+	if len(wl.Spec.PodSets) != 1 {
+		t.Fatalf("want exactly 1 PodSet, got %d", len(wl.Spec.PodSets))
+	}
+	ps := wl.Spec.PodSets[0]
+	if ps.Count != 2 {
+		t.Errorf("PodSets[0].Count = %d, want 2", ps.Count)
+	}
+	reqs := ps.Template.Spec.Containers[0].Resources.Requests
+	for _, gpuRes := range []corev1.ResourceName{"nvidia.com/gpu", "amd.com/gpu", "gpu.intel.com/i915", "devic.es/dri-render"} {
+		if _, ok := reqs[gpuRes]; ok {
+			t.Fatalf("PodSets[0] must not request %s for a DRA claims model: %+v", gpuRes, reqs)
+		}
+	}
+}
+
 // TestUnlabeledISVCGetsNoWorkload: an InferenceService with no queue-name
 // label is invisible to the reconciler (ManageJobsWithoutQueueName defaults
 // to false), so no Workload ever appears and the ISVC's spec is left alone.

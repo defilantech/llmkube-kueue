@@ -37,6 +37,28 @@ func amdVulkanModel(name string) *llmkubev1alpha1.Model {
 	}
 }
 
+// draModel builds a Model whose GPUs are allocated through DRA
+// resourceClaims: the claims allocate the devices and count only sizes
+// the runtime.
+func draModel(name string, count int32) *llmkubev1alpha1.Model {
+	claimName := "gpu-claim"
+	return &llmkubev1alpha1.Model{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+		Spec: llmkubev1alpha1.ModelSpec{
+			Source: "https://example.com/model.gguf",
+			Hardware: &llmkubev1alpha1.HardwareSpec{
+				GPU: &llmkubev1alpha1.GPUSpec{
+					Count: count,
+					ResourceClaims: []corev1.PodResourceClaim{{
+						Name:              "gpu",
+						ResourceClaimName: &claimName,
+					}},
+				},
+			},
+		},
+	}
+}
+
 func TestSuspendSemantics(t *testing.T) {
 	j := (*InferenceService)(isvcFixture(ptr32(3), false, ""))
 	if j.IsSuspended() {
@@ -76,9 +98,13 @@ func TestPodSets(t *testing.T) {
 		wantCount int32
 		wantRes   corev1.ResourceName
 		wantQty   int64
+		wantNoGPU bool
 	}{
-		{"nvidia default, nil replicas -> 1", isvcFixture(nil, false, ""), nil, 1, corev1.ResourceName("nvidia.com/gpu"), 1},
-		{"amd vulkan via model, model count wins", isvcFixture(ptr32(2), false, "m"), amdVulkanModel("m"), 2, corev1.ResourceName("devic.es/dri-render"), 2},
+		{"nvidia default, nil replicas -> 1", isvcFixture(nil, false, ""), nil, 1, corev1.ResourceName("nvidia.com/gpu"), 1, false},
+		{"amd vulkan via model, model count wins", isvcFixture(ptr32(2), false, "m"), amdVulkanModel("m"), 2, corev1.ResourceName("devic.es/dri-render"), 2, false},
+		{"dra claims with model count skip the device-plugin request", isvcFixture(ptr32(2), false, "m"), draModel("m", 2), 2, "", 0, true},
+		{"dra claims with isvc-level gpu only still skip", isvcFixture(ptr32(2), false, "m"), draModel("m", 0), 2, "", 0, true},
+		{"modelRef not found still requests the nvidia default", isvcFixture(ptr32(1), false, "gone"), nil, 1, corev1.ResourceName("nvidia.com/gpu"), 1, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -97,6 +123,15 @@ func TestPodSets(t *testing.T) {
 			ps := podSets[0]
 			if ps.Count != tc.wantCount {
 				t.Errorf("Count = %d, want %d", ps.Count, tc.wantCount)
+			}
+			if tc.wantNoGPU {
+				reqs := ps.Template.Spec.Containers[0].Resources.Requests
+				for _, gpuRes := range []corev1.ResourceName{"nvidia.com/gpu", "amd.com/gpu", "gpu.intel.com/i915", "devic.es/dri-render"} {
+					if _, ok := reqs[gpuRes]; ok {
+						t.Errorf("DRA claims model must not request %s: %+v", gpuRes, reqs)
+					}
+				}
+				return
 			}
 			qty, ok := ps.Template.Spec.Containers[0].Resources.Requests[tc.wantRes]
 			if !ok {

@@ -59,6 +59,6 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 // *llmkubev1alpha1.Model argument to type-check the negative test.
 func (d *InferenceServiceDefaulter) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr, &llmkubev1alpha1.InferenceService{}). //nolint:staticcheck // deprecated WithCustomDefaulter required: see doc comment above
-		WithCustomDefaulter(d).
-		Complete()
+											WithCustomDefaulter(d).
+											Complete()
 }
